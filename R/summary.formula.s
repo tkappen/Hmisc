@@ -1392,22 +1392,16 @@ print.summary.formula.reverse <-
   }
 
   lab <- dimnames(cstats)[[1]]
-
-  cl <- names(x$group.freq)
-  nl <- if (length(cl))
-    paste("(N=", x$group.freq, ")", sep = "")
+  gl <- names(x$group.freq)
+  gl <- if(length(gl)) paste(gl,if(mdFormat) "<br>" else" \n", "(N=",x$group.freq,")",sep="")
   else ""
-  gl <- paste(if (!mdFormat) paste(cl, " \n", sep = "") else "", nl, sep = "")
   
-  if (length(test) && !all(prtest == "none")) {
-    tl <- if (length(prtest) == 1 && prtest != "stat") if (prtest == 
-                                                           "P") "P-value" else prtest else "  Test\nStatistic"
-    cl <- c(cl, tl)
-    if(!mdFormat) 
-      gl <- c(gl, tl)
-    else 
-      gl <- c(gl, "")
-  } 
+  if(length(test) && !all(prtest=='none'))
+    gl <- c(gl,
+            if(length(prtest)==1 && prtest!='stat')
+              if(prtest=='P')'P-value'
+            else prtest
+            else '  Test\nStatistic')
   
   nc <- nchar(cstats)
   spaces <- substring("                                                        ",
@@ -1419,23 +1413,24 @@ print.summary.formula.reverse <-
     cnn <- format(nn)
     cnn[is.na(nn)] <- ''
     cstats <- cbind(cnn, cstats)
-    cl <- c("N", cl)
-    gl <- c(if(!mdFormat) "N" else "", gl)
+    gl <- c("N", gl)
   }
-
-  cstats <- rbind(gl, cstats)
 
   if (mdFormat) {
     lab <- gsub(" ", "&nbsp;", lab, fixed=TRUE)
-    dimnames(cstats) <- list(c("", lab), cl)
+    dimnames(cstats) <- list(lab, gl)
+    
     return(cstats)
   } else {
+    cstats <- rbind(gl, cstats)
     dimnames(cstats) <- list(c("", lab), if (mdFormat) cl else NULL)
+    
     cat("\n\nDescriptive Statistics", if (length(x$group.label)) 
       paste(" by", x$group.label)
       else paste("  (N=", x$N, ")", sep = ""), "\n\n", sep = "")
     if (missing(min.colwidth)) 
       min.colwidth <- max(min(nchar(gl)), min(nc[nc > 0]))
+    
     print.char.matrix(cstats, col.txt.align = "left", 
                       ...)
     invisible(cstats)
