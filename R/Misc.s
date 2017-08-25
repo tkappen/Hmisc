@@ -244,6 +244,7 @@ all.is.numeric <- function(x, what=c('test','vector'),
   x <- sub('[[:space:]]+$', '', x)
   x <- sub('^[[:space:]]+', '', x)
   xs <- x[x %nin% c('',extras)]
+  if(! length(xs)) return(if(what == 'test') FALSE else x)
   isnum <- suppressWarnings(!any(is.na(as.numeric(xs))))
   if(what=='test')
     isnum
@@ -862,18 +863,17 @@ whichClosest <- function(x, w)
   ## w: vector of values for which to lookup closest matches in x
   ## Returns: subscripts in x corresponding to w
   ## Assumes no NAs in x or w
-  .Fortran("wclosest",as.double(w),as.double(x),
+  .Fortran(F_wclosest,as.double(w),as.double(x),
            length(w),length(x),
-           j=integer(length(w)),PACKAGE="Hmisc")$j
+           j=integer(length(w)))$j
 }
 
 whichClosePW <- function(x, w, f=0.2) {
   lx <- length(x)
   lw <- length(w)
-  .Fortran("wclosepw",as.double(w),as.double(x),
+  .Fortran(F_wclosepw,as.double(w),as.double(x),
            as.double(runif(lw)),as.double(f),
-           lw, lx, double(lx), j=integer(lw),
-           PACKAGE="Hmisc")$j
+           lw, lx, double(lx), j=integer(lw))$j
 }              
 
 whichClosek <- function(x, w, k) {
@@ -1264,8 +1264,8 @@ if(weights)
 
   nq <- length(ps)
   ## Get all n leave-out-one quantile estimates
-  S <- matrix(.Fortran("jacklins", x, w, as.integer(n), as.integer(nq),
-                       res=double(n*nq), PACKAGE='Hmisc')$res, ncol=nq)
+  S <- matrix(.Fortran(F_jacklins, x, w, as.integer(n), as.integer(nq),
+                       res=double(n*nq))$res, ncol=nq)
 
   se <- l * sqrt(diag(var(S))/n)
 
@@ -1341,7 +1341,7 @@ Load <- function(object)
   load(file, .GlobalEnv)
 }
 
-Save <- function(object, name=deparse(substitute(object)), compress='xz')
+Save <- function(object, name=deparse(substitute(object)), compress=TRUE)
 {
   path <- .Options$LoadPath
   if(length(path))
@@ -1349,7 +1349,7 @@ Save <- function(object, name=deparse(substitute(object)), compress='xz')
   
   .FileName <- paste(path, name, '.rda', sep='')
   assign(name, object)
-  if(is.logical(compress) && compress) compress <- 'xz'
+  if(is.logical(compress) && compress) compress <- 'gzip'
   eval(parse(text=paste('save(', name, ', file="',
                         .FileName, '", compress="', compress, '")', sep='')))
 }
@@ -1361,12 +1361,12 @@ getZip <- function(url, password=NULL) {
   ## Password is 'foo'
   ## url may also be a local file
   ## Note: to make password-protected zip file z.zip, do zip -e z myfile
-  if(toupper(substring(url, 1, 7)) == 'HTTP://') {
+  if(grepl("^https?://", tolower(url))) {
     f <- tempfile()
     download.file(url, f)
   } else f <- url
   cmd <- if(length(password))
-    paste('unzip -p -P', password) else 'unzip -p'
+           paste('unzip -p -P', password) else 'unzip -p'
   pipe(paste(cmd, f))
 }
 
@@ -1485,7 +1485,6 @@ makeSteps <- function(x, y)
   else list(x = x[c(1, 2, 2)], y = y[c(1, 1, 2)])
 }
 
-#latexBuild <- function(..., afterEndtabular=NULL, beforeEndtable=NULL, sep='') {
 latexBuild <- function(..., insert=NULL, sep='') {
   w <- list(...)
   l <- length(w)
@@ -1509,7 +1508,7 @@ latexBuild <- function(..., insert=NULL, sep='') {
         for(ins in insert)
           if(length(ins) &&
              ins[[1]] == y && ins[[2]] == 'before')
-            w <- c(w, '\n\n', ins[[3]])
+            w <- c(w, '\n', ins[[3]])
       w <- c(w,
              if(y == '(') ')'
              else if(y == '{') '}'
@@ -1519,7 +1518,7 @@ latexBuild <- function(..., insert=NULL, sep='') {
         for(ins in insert)
           if(length(ins) &&
              ins[[1]] == y && ins[[2]] == 'after')
-            w <- c(w, '\n\n', ins[[3]])
+            w <- c(w, '\n', ins[[3]])
     }
     paste(w, collapse=sep)
   }
@@ -1529,7 +1528,6 @@ latexBuild <- function(..., insert=NULL, sep='') {
 getRs <- function(file=NULL,
                   guser='harrelfe', grepo='rscripts',
                   gdir='raw/master', dir=NULL,
-                  where='https://github.com/harrelfe/rscripts/raw/master',
                   browse=c('local', 'browser'), cats=FALSE,
                   put=c('rstudio', 'source')) {
   
@@ -1646,7 +1644,7 @@ getRs <- function(file=NULL,
   invisible()
 }
 
-knitrSet <- function(basename=NULL, w=4, h=3,
+knitrSet <- function(basename=NULL, w=4, h=3, wo=NULL, ho=NULL,
                      fig.path=if(length(basename)) basename else '',
                      fig.align='center', fig.show='hold', fig.pos='htbp',
                      fig.lp=paste('fig', basename, sep=':'),
@@ -1675,6 +1673,15 @@ knitrSet <- function(basename=NULL, w=4, h=3,
   }
   else knitr::opts_chunk$set(message=FALSE, warning=FALSE)
   if(length(size)) knitr::opts_chunk$set(size = size)
+  ## For htmlcap see http://stackoverflow.com/questions/15010732
+  ## Causes collisions in html and plotly output; Original (no better)
+  ## enclosed in <p class="caption"> ... </p>
+#  if(lang == 'markdown')
+#    knitr::knit_hooks$set(htmlcap = function(before, options, envir) {
+#      if(! before) options$htmlcap
+#        htmltools::HTML(paste0('<br><div style="font-size: 75%;">',
+#                               options$htmlcap, "</div><br>"))
+#    })
   
   if(length(decinline)) {
     rnd <- function(x, dec) if(!is.numeric(x)) x else round(x, dec)
@@ -1711,14 +1718,21 @@ knitrSet <- function(basename=NULL, w=4, h=3,
                    if(any(i)) do.call('spar', pars[i]) else spar()
                  })
   knitr::opts_knit$set(
-    width=width,
-    aliases=c(h='fig.height', w='fig.width', cap='fig.cap', scap='fig.scap'))
+    width=width)
+    #aliases=c(h='fig.height', w='fig.width', cap='fig.cap', scap='fig.scap'))
     #eval.after = c('fig.cap','fig.scap'),
     #error=error)  #, keep.source=keep.source (TRUE))
-  knitr::opts_chunk$set(fig.path=fig.path, fig.align=fig.align, w=w, h=h,
-                 fig.show=fig.show, fig.lp=fig.lp, fig.pos=fig.pos,
-                 dev=dev, par=TRUE, tidy=tidy, out.width=NULL, cache=cache,
-                 echo=echo, error=error, comment='', results=results)
+  # See if need to remove dev=dev from below because of plotly graphics
+  knitr::opts_chunk$set(fig.path=fig.path, fig.align=fig.align,
+                        fig.width=w, fig.height=h,
+                        out.width=wo,out.height=ho,
+                        fig.show=fig.show, fig.lp=fig.lp, fig.pos=fig.pos,
+                        dev=dev, par=TRUE, tidy=tidy, out.width=NULL,
+                        cache=cache,
+                        echo=echo, error=error, comment='', results=results)
+  
+  if(lang == 'markdown') knitr::knit_hooks$set(uncover=markupSpecs$html$uncover)
+  
   hook_chunk = knitr::knit_hooks$get('chunk')
   ## centering will not allow too-wide figures to go into left margin
   if(lang == 'latex') knitr::knit_hooks$set(chunk = function(x, options) { 
@@ -1727,7 +1741,83 @@ knitrSet <- function(basename=NULL, w=4, h=3,
     gsub('\\{\\\\centering (\\\\includegraphics.+)\n\n\\}', 
          '\\\\centerline{\\1}', res) 
   }) 
+  knitr::set_alias(w = 'fig.width', h = 'fig.height',
+                   wo= 'out.width', ho= 'out.height',
+                   cap = 'fig.cap', scap='fig.scap')
 }
 ## see http://yihui.name/knitr/options#package_options
 
 ## Use caption package options to control caption font size
+
+
+grType <- function() {
+	if('plotly' %nin% utils::installed.packages()[,1]) return('base')
+	if(length(g <- .Options$grType) && g == 'plotly') 'plotly' else 'base'
+}
+
+prType <- function() {
+  g <- .Options$prType
+  if(! length(g)) 'plain' else g
+  }
+
+
+## Save a plotly graphic with name foo.png where foo is the name of the
+## current chunk
+## http://stackoverflow.com/questions/33959635/exporting-png-files-from-plotly-in-r
+
+plotlySave <- function(x, ...) {
+  chunkname <- knitr::opts_current$get("label")
+  path      <- knitr::opts_chunk$get('fig.path')
+  if(is.list(x) & ! inherits(x, 'plotly_hash')) {
+    for(w in names(x)) {
+      file <- paste0(path, chunkname, '-', w, '.png')
+      plotly::plotly_IMAGE(x[[w]], format='png', out_file=file, ...)
+    }
+  }
+  else {
+    file <- paste0(path, chunkname, '.png')
+    plotly::plotly_IMAGE(x, format='png', out_file=file, ...)
+    }
+  invisible()
+}
+
+## Miscellaneous functions helpful for plotly specifications
+
+plotlyParm = list(
+  ## Needed height in pixels for a plotly dot chart given the number of
+  ## rows in the chart
+  heightDotchart = function(rows) min(800, max(200, 25 * rows)),
+
+  ## Colors for unordered categories
+  colUnorder = function(n=5, col=colorspace::rainbow_hcl) {
+    if(! is.function(col)) rep(col, length=n)
+    else col(n)
+  },
+
+  ## Colors for ordered levels
+  colOrdered = function(n=5, col=viridis::viridis) {
+    if(! is.function(col)) rep(col, length=n)
+    else col(n)
+  },
+
+  ## Margin to leave enough room for long labels on left or right as
+  ## in dotcharts
+  lrmargin = function(x, wmax=190, mult=7) {
+    if(is.character(x)) x <- max(nchar(x))
+    min(wmax, max(70, x * mult))
+    }
+ 
+  )
+
+## Function written by Dirk Eddelbuettel:
+tobase64image <- function (file, Rd = FALSE, alt = "image") {
+  input <- normalizePath(file, mustWork = TRUE)
+  buf <- readBin(input, raw(), file.info(input)$size)
+  base64 <- base64enc::base64encode(buf)
+  sprintf("%s<img src=\"data:image/png;base64,\n%s\" alt=\"%s\" />%s",
+          if (Rd)
+            "\\out{"
+          else "", base64, alt, if (Rd)
+                                  "}"
+                                else "")
+}

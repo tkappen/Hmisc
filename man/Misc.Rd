@@ -2,6 +2,8 @@
 \alias{clowess}
 \alias{confbar}
 \alias{getLatestSource}
+\alias{grType}
+\alias{prType}
 \alias{inverseFunction}
 \alias{james.stein}
 \alias{km.quick}
@@ -11,8 +13,10 @@
 \alias{makeSteps}
 \alias{nomiss}
 \alias{outerText}
+\alias{plotlyParm}
 \alias{sepUnitsTrans}
 \alias{strgraphwrap}
+\alias{tobase64image}
 \alias{trap.rule}
 \alias{trellis.strip.blank}
 \alias{unPaste}
@@ -35,6 +39,15 @@
   \code{getLatestSource} fetches and \code{source}s the most recent
   source code for functions in packages in the Vanderbilty University
   CVS repository.
+  
+  \code{grType} retrieves the system option \code{grType}, which is
+  forced to be \code{"base"} if the \code{plotly} package is not
+  installed.
+
+	\code{prType} retrieves the system option \code{prType}, which is
+	set to \code{"plain"} if the option is not set.  \code{print} methods
+	that allow for markdown/html/latex can be automatically invoked by
+	setting \code{options(prType="html")} or \code{options(prType='latex')}.
 
   \code{inverseFunction} generates a function to find all inverses of a
   monotonic or nonmonotonic function that is tabulated at vectors (x,y),
@@ -95,7 +108,11 @@
   with any element missing removed.
 
   \code{outerText} uses \code{axis()} to put right-justified text
-  strings in the right margin.  Placement depends on \code{par('mar')[4]}
+  strings in the right margin.  Placement depends on
+  \code{par('mar')[4]}
+
+	\code{plotlyParm} is a list of functions useful for specifying
+	parameters to \code{plotly} graphics.
 
   \code{sepUnitsTrans} converts character vectors containing values such
   as \code{c("3 days","3day","4month","2 years","2weeks","7")} to
@@ -110,7 +127,11 @@
 
   \code{strgraphwrap} is like \code{strwrap} but is for the current
   graphics environment.
-  
+
+	\code{tobase64image} is a function written by Dirk Eddelbuettel that
+  uses the \code{base64enc} package to convert a png graphic file to
+  base64 encoding to include as an inline image in an html file.
+	
   \code{trap.rule} computes the area under a curve using the trapezoidal
   rule, assuming \code{x} is sorted.
 
@@ -144,7 +165,8 @@ confbar(at, est, se, width, q = c(0.7, 0.8, 0.9, 0.95, 0.99),
                             qnorm((1 +  x)/2))))
 getLatestSource(x=NULL, package='Hmisc', recent=NULL, avail=FALSE,
                 type=c('svn','cvs'))
-
+grType()
+prType()
 inverseFunction(x, y)
 james.stein(y, group)
 km.quick(S, times, q)
@@ -153,11 +175,13 @@ lm.fit.qr.bare(x, y, tolerance, intercept=TRUE, xpxi=FALSE, singzero=FALSE)
 matxv(a, b, kint=1, bmat=FALSE)
 nomiss(x)
 outerText(string, y, cex=par('cex'), \dots)
+plotlyParm
 sepUnitsTrans(x, conversion=c(day=1, month=365.25/12, year=365.25, week=7),
               round=FALSE, digits=0)
 strgraphwrap(x, width = 0.9 * getOption("width"),
              indent = 0, exdent = 0,
              prefix = "", simplify = TRUE, units='user', cex=NULL)
+tobase64image(file, Rd = FALSE, alt = "image")
 trap.rule(x, y)
 trellis.strip.blank()
 unPaste(str, sep="/")
@@ -168,6 +192,7 @@ xless(x, \dots, title)
 }
 \arguments{
   \item{a}{a numeric matrix or vector}
+	\item{alt,Rd}{see \code{base64::img}}
   \item{at}{x-coordinate for vertical confidence intervals, y-coordinate
 	for horizontal}
   \item{avail}{set to \code{TRUE} to have \code{getLatestSource} return
@@ -181,6 +206,7 @@ xless(x, \dots, title)
   \item{digits}{number of digits used for \code{round}}
   \item{est}{vector of point estimates for confidence limits}
   \item{f}{a scaling constant}
+	\item{file}{a file name}
   \item{fun}{function to transform scale}
   \item{group}{a categorical grouping variable}
 	\item{insert}{a list of 3-element lists for \code{latexBuild}.

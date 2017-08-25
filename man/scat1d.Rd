@@ -81,8 +81,9 @@
   x-axis.
 
 	\code{histSpikeg} is similar to \code{histSpike} but is for adding layers
-	to a \code{ggplot2} graphics object.  \code{histSpikeg} can also add
-	\code{lowess} curves to the plot.
+	to a \code{ggplot2} graphics object or traces to a \code{plotly}
+	object.
+	\code{histSpikeg} can also add \code{lowess} curves to the plot.
 }
 \usage{
 scat1d(x, side=3, frac=0.02, jitfrac=0.008, tfrac,
@@ -122,13 +123,13 @@ histSpike(x, side=1, nint=100, frac=.05, minf=NULL, mult.width=1,
                            density   ='Density'),
           y=NULL, curve=NULL, add=FALSE, 
           bottom.align=type=='density', col=par('col'), lwd=par('lwd'),
-          grid=FALSE, ...)
+          grid=FALSE, \dots)
 
-histSpikeg(formula=NULL, predictions=NULL, data,
+histSpikeg(formula=NULL, predictions=NULL, data, plotly=NULL,
            lowess=FALSE, xlim=NULL, ylim=NULL,
            side=1, nint=100,
            frac=function(f) 0.01 + 0.02*sqrt(f-1)/sqrt(max(f,2)-1),
-           span=3/4, histcol='black')
+           span=3/4, histcol='black', showlegend=TRUE)
 }
 \arguments{
   \item{x}{
@@ -254,7 +255,8 @@ histSpikeg(formula=NULL, predictions=NULL, data,
   }
   \item{\dots}{
     optional arguments passed to \code{scat1d} from \code{datadensity}
-    or to \code{histSpike} from \code{scat1d}
+    or to \code{histSpike} from \code{scat1d}.  For \code{histSpikep}
+           are passed to the \code{lines} list to \code{add_trace}.
   }
   \item{presorted}{
     set to \code{TRUE} to prevent from sorting for determining the order
@@ -378,6 +380,9 @@ histSpikeg(formula=NULL, predictions=NULL, data,
     frequency distribution is to be summarized, using variables in
     \code{formula}. 
 	}
+	\item{plotly}{
+		an existing \code{plotly} object.  If not \code{NULL},
+           \code{histSpikeg} uses \code{plotly} instead of \code{ggplot}.}
 	\item{lowess}{
 		set to \code{TRUE} to have \code{histSpikeg} add a \code{geom_line}
            layer to the \code{ggplot2} graphic, containing
@@ -394,7 +399,9 @@ histSpikeg(formula=NULL, predictions=NULL, data,
  \code{histSpikeg}.  Default is black.  Set to any color or to
    \code{"default"} to use the prevailing colors for the
    graphic.
-}	 
+ }
+\item{showlegend}{set to \code{FALSE} too have the added \code{plotly}
+           traces not have entries in the plot legend}
 }
 \value{
   \code{histSpike} returns the actual range of \code{x} used in its binning
@@ -438,7 +445,7 @@ D-70597 Stuttgart Germany\cr
   \code{\link{plsmo}}, \code{\link{lowess}}, \code{\link{stripplot}},
   \code{\link{hist.data.frame}},\code{\link{Ecdf}}, \code{\link{hist}},
   \code{\link[lattice]{histogram}}, \code{\link{table}},
-  \code{\link{density}}, \code{\link{stat_plsmo}}
+  \code{\link{density}}, \code{\link{stat_plsmo}}, \code{\link{histboxp}}
 }
 \examples{
 plot(x <- rnorm(50), y <- 3*x + rnorm(50)/2 )
@@ -525,6 +532,10 @@ g <- ggplot(p, aes(x=cholesterol, y=yhat, color=sex)) + geom_line() +
 g <- g + geom_ribbon(data=p, aes(ymin=lower, ymax=upper), alpha=0.2,
                 linetype=0, show_guide=FALSE)
 g + histSpikeg(yhat ~ cholesterol + sex, p, d)
+
+# colors <- c('red', 'blue')
+# p <- plot_ly(x=x, y=y, color=g, colors=colors, mode='markers')
+# histSpikep(p, x, y, z, color=g, colors=colors)
 }
 }
 \keyword{dplot}

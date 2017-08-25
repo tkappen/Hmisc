@@ -5,7 +5,9 @@
 \alias{latex.function}
 \alias{latex.list}
 \alias{latexTranslate}
+\alias{htmlTranslate}
 \alias{latexSN}
+\alias{htmlSN}
 \alias{latexVerbatim}
 \alias{dvi}
 \alias{print.dvi}
@@ -50,9 +52,13 @@ inserted as needed.
 \code{latexTranslate} assumes that input text always has matches,
 e.g. \code{[) [] (] ()}, and that surrounding  by \samp{\$\$} is OK.
 
+\code{htmlTranslate} is similar to \code{latexTranslate} but for html
+translation.  It doesn't need math mode and assumes dollar signs are
+just that.
+
 \code{latexSN} converts a vector floating point numbers to character
 strings using LaTeX exponents.  Dollar signs to enter math mode are not
-added.
+added.  Similarly, \code{htmlSN} converts to scientific notation in html.
 
 \code{latexVerbatim} on an object executes the object's \code{print} method,
 capturing the output for a file inside a LaTeX verbatim environment.
@@ -121,8 +127,9 @@ latex(object, \dots)
     center=c('center','centering','centerline','none'),
     landscape=FALSE,
     multicol=TRUE,
-    math.row.names=FALSE, math.col.names=FALSE,
-    hyperref=NULL,
+    math.row.names=FALSE, already.math.row.names=FALSE,
+    math.col.names=FALSE, already.math.col.names=FALSE,
+    hyperref=NULL, continued='continued',
     \dots) # x is a matrix or data.frame
 
 \method{latex}{function}(
@@ -149,7 +156,12 @@ latex(object, \dots)
 latexTranslate(object, inn=NULL, out=NULL, pb=FALSE, greek=FALSE, na='',
                \dots)
 
+htmlTranslate(object, inn=NULL, out=NULL, greek=FALSE, na='',
+              unicode=FALSE, \dots)
+
 latexSN(x)
+
+htmlSN(x)
 
 latexVerbatim(x, title=first.word(deparse(substitute(x))),
     file=paste(title, ".tex", sep=""),
@@ -176,7 +188,7 @@ dvigv(object, \dots)
   }
   \item{x}{
     any object to be \code{print}ed verbatim for \code{latexVerbatim}.  For
-    \code{latexSN} \code{x} is a numeric vector.
+    \code{latexSN} or \code{htmlSN}, \code{x} is a numeric vector.
   }
   \item{title}{
     name of file to create without the \samp{.tex} extension.  If this
@@ -340,11 +352,17 @@ dvigv(object, \dots)
   \item{math.row.names}{
     logical, set true to place dollar signs around the row names.
   }
+	\item{already.math.row.names}{set to \code{TRUE} to prevent any math
+		mode changes to row names}
   \item{math.col.names}{
     logical, set true to place dollar signs around the column names.
   }
+	\item{already.math.col.names}{set to \code{TRUE} to prevent any math
+		mode changes to column names}
 	\item{hyperref}{if \code{table.env=TRUE} is a character string used to
   	generate a LaTeX \code{hyperref} enclosure}
+	\item{continued}{a character string used to indicate pages after the
+		first when making a long table}
   \item{cdot}{see \code{\link{format.df}}}
   \item{longtable}{
     Set to \code{TRUE} to use David Carlisle's LaTeX \code{longtable} style, allowing
@@ -467,20 +485,24 @@ dvigv(object, \dots)
     passes arguments to \code{format.df} (e.g., \code{col.just} and other
     formatting options like \code{dec}, \code{rdec}, and \code{cdec}).  For
     \code{latexVerbatim} these arguments are passed to the \code{print}
-    function.  Ignored for \code{latexTranslate}.
+    function.  Ignored for \code{latexTranslate} and \code{htmlTranslate}.
   }
   \item{inn, out}{
     specify additional input and translated strings over the usual
     defaults
   }
   \item{pb}{
-    If \code{pb=TRUE}, \code{latexTranslate} also translates \samp{[()]} to math mode using
-    \samp{\\left, \\right}.
+    If \code{pb=TRUE}, \code{latexTranslate} also translates \samp{[()]}
+		to math mode using \samp{\\left, \\right}.
   }
   \item{greek}{set to \code{TRUE} to have \code{latexTranslate} put names
-    for greek letters in math mode and add backslashes}
+    for greek letters in math mode and add backslashes. For
+		\code{htmlTranslate}, translates greek letters to corresponding html
+	characters, ignoring "modes".}
 	\item{na}{single character string to translate \code{NA} values to for
-		\code{latexTranslate}}
+		\code{latexTranslate} and \code{htmlTranslate}}
+	\item{unicode}{set to \code{TRUE} to use HTML unicode characters
+		otherwise the ampersand pound number format will be used}
   \item{hspace}{
     horizontal space, e.g., extra left margin for verbatim text.  Default
     is none.  Use e.g. \code{hspace="10ex"} to add 10 extra spaces to the left

@@ -13,7 +13,8 @@
 	argument \code{label} used to label the panel created for that group
 	of related variables.
 	
-	The \code{plot} method for \code{summaryP}	displays proportions as a
+	If \code{options(grType='plotly')} is not in effect,
+	the \code{plot} method for \code{summaryP}	displays proportions as a
 	multi-panel dot chart using the \code{lattice} package's \code{dotplot}
 	function with a special \code{panel} function.  Numerators and
 	denominators of proportions are also included as text, in the same
@@ -23,15 +24,26 @@
 	\code{formula}, with elements named \code{val} (category levels),
 	\code{var} (classification variable name), \code{freq} (calculated
 	result) plus the overall cross-classification variables excluding
-	\code{groups}.
+	\code{groups}.  If \code{options(grType='plotly')} is in effect, the
+	\code{plot} method makes an entirely different display using
+	\code{Hmisc::dotchartpl} with code{plotly} if \code{marginVal} is
+	specified, whereby a stratification
+	variable causes more finely stratified estimates to be shown slightly
+	below the lines, with smaller and translucent symbols if \code{data}
+	has been run through \code{addMarginal}.  The marginal summaries are
+	shown as the main estimates and the user can turn off display of the
+	stratified estimates, or view their details with hover text.
 
 	The \code{ggplot} method for \code{summaryP} does not draw numerators
-	and denominators but the chart is more compact because \code{ggplot2}
+	and denominators but the chart is more compact than using the
+	\code{plot} method with base graphics because \code{ggplot2}
 	does not repeat category names the same way as \code{lattice} does.
 	Variable names that are too long to fit in panel strips are renamed
 	(1), (2), etc. and an attribute \code{"fnvar"} is added to the result;
 	this attribute is a character string defining the abbreviations,
-	useful in a figure caption.
+	useful in a figure caption.  The \code{ggplot2} object has
+	\code{label}s for points plotted, used by \code{plotly::ggplotly} as
+	hover text (see example).
 
 	The \code{latex} method produces one or more LaTeX \code{tabular}s
 	containing a table representation of the result, with optional
@@ -43,14 +55,16 @@
 summaryP(formula, data = NULL, subset = NULL,
          na.action = na.retain, sort=TRUE,
          asna = c("unknown", "unspecified"), \dots)
-\method{plot}{summaryP}(x, formula, groups=NULL, exclude1=TRUE,
-         xlim = c(-.05, 1.05),
+\method{plot}{summaryP}(x, formula=NULL, groups=NULL,
+         marginVal=NULL, marginLabel=marginVal,
+         refgroup=NULL, exclude1=TRUE,  xlim = c(-.05, 1.05),
          text.at=NULL, cex.values = 0.5,
          key = list(columns = length(groupslevels), x = 0.75,
                     y = -0.04, cex = 0.9,
                     col = trellis.par.get('superpose.symbol')$col,
                     corner=c(0,1)),
-         outerlabels=TRUE, autoarrange=TRUE, \dots)
+         outerlabels=TRUE, autoarrange=TRUE,
+         col=colorspace::rainbow_hcl, \dots)
 \method{ggplot}{summaryP}(data, mapping, groups=NULL, exclude1=TRUE,
            xlim=c(0, 1), col=NULL, shape=NULL, size=function(n) n ^ (1/4),
            sizerange=NULL, abblen=5, autoarrange=TRUE, addlayer=NULL,
@@ -79,6 +93,20 @@ summaryP(formula, data = NULL, subset = NULL,
   \item{groups}{a character string containing the name of a
    	superpositioning variable for obtaining 
 		further stratification within a horizontal line in the dot chart.}
+	\item{marginVal}{if \code{options(grType='plotly')} is in effect and
+	the data given to \code{summaryP} were run through \code{addMarginal},
+	specifies the category name that represents marginal summaries
+	(usually \code{"All"}).}
+  \item{marginLabel}{specifies a different character string to use than
+	the value of \code{marginVal}.  For example, if marginal proportions
+	were computed over all \code{region}s, one may specify
+	\code{marginVal="All", marginLabel="All Regions"}.  \code{marginLabel}
+	is only used for formatting graphical output.}
+  \item{refgroup}{used when doing a \code{plotly} chart and a two-level
+	 group variable was used, resulting in the half-width confidence
+  	interval for the difference in two proportions to be shown, and the
+		actual confidence limits and the difference added to hover text.  See
+	\code{dotchartpl} for more details.}
   \item{exclude1}{By default, \code{ggplot}, \code{plot}, and
 	\code{latex} methods for \code{summaryP} remove redundant entries 
 		from tables for variables with only two levels.  For example, if you
@@ -103,7 +131,7 @@ summaryP(formula, data = NULL, subset = NULL,
  	 if there are two conditioning (paneling) variables, the variable with
 	 the most levels is taken as the vertical condition.}
  \item{col}{a vector of colors to use to override defaults in
-	 \code{ggplot}}
+	 \code{ggplot}.  When \code{options(grType='plotly')}, see \code{dotchartpl}.}
  \item{shape}{a vector of plotting symbols to override \code{ggplot}
 	 defaults}
  \item{mapping, environment}{not used; needed because of rules for generics}
@@ -132,7 +160,8 @@ summaryP(formula, data = NULL, subset = NULL,
 	here).  The default \code{abblen=5} is good for labels plotted
 	vertically.  If labels are rotated using \code{theme} a better value
 	would be 12.}
- \item{\dots}{ignored}
+ \item{\dots}{used only for \code{plotly} graphics and these arguments
+	are passed to \code{dotchartpl}}
  \item{object}{an object produced by \code{summaryP}}
  \item{file}{file name, defaults to writing to console}
  \item{round}{number of digits to the right of the decimal place for
@@ -188,6 +217,21 @@ plot(s, val ~ freq | region * var, groups='treat', outerlabels=FALSE)
 # Much better looking if omit outerlabels=FALSE; see output at
 # http://biostat.mc.vanderbilt.edu/HmiscNew#summaryP
 # See more examples under bpplotM
+
+## For plotly interactive graphic that does not handle variable size
+## panels well:
+## require(plotly)
+## g <- ggplot(s, groups='treat')
+## ggplotly(g, tooltip='text')
+
+## For nice plotly interactive graphic:
+## options(grType='plotly')
+## s <- summaryP(race + sex + ynbind(x1, x2, x3, x4, x5, x6, x7,
+##                                   label='Exclusions') ~
+##               treat, data=subset(d, region='Europe'))
+##
+## plot(s, groups='treat', refgroup='A')  # refgroup='A' does B-A differences
+
 
 # Make a chart where there is a block of variables that
 # are only analyzed for males.  Keep redundant sex in block for demo.

@@ -61,8 +61,12 @@ format.df <- function(x,
                       numeric.dollar=! dcolumn, na.blank=FALSE,
                       na.dot=FALSE, blank.dot=FALSE, col.just=NULL,
                       cdot=FALSE, dcolumn=FALSE, matrix.sep=' ',
-                      scientific=c(-4,4), math.row.names=FALSE,
-                      math.col.names=FALSE, double.slash=FALSE,
+                      scientific=c(-4,4),
+                      math.row.names=FALSE,
+                      already.math.row.names=FALSE,
+                      math.col.names=FALSE,
+                      already.math.col.names=FALSE,
+                      double.slash=FALSE,
                       format.Date='%m/%d/%Y',
                       format.POSIXt="%m/%d/%Y %H:%M:%OS", ...)
 {
@@ -109,7 +113,8 @@ format.df <- function(x,
   }
 
   if(length(digits)) {
-    oldopt <- options(digits=digits)
+	oldopt <- options('digits')
+    options(digits=digits)
     on.exit(options(oldopt))
   }
   
@@ -177,12 +182,12 @@ format.df <- function(x,
       sapply(n.x, function(n.x.i) paste(rep(" ", n.x.i), collapse=""))
     ifelse(x == blanks.x, ".", x)
   }
-  
+
   nams <- if(math.col.names) paste('$', nams, '$', sep='')
-   else cleanLatex(nams)
+   else if(already.math.col.names) nams else cleanLatex(nams)
 
   rnams <- if(math.row.names) paste('$', rnams, '$', sep='')
-   else cleanLatex(rnams)
+   else if(already.math.row.names) rnams else cleanLatex(rnams)
 
   for(j in 1 : ncx) {
     xj <- if(xtype == 1) x[[j]] else if(xtype == 2) x[,j] else x
@@ -209,9 +214,7 @@ format.df <- function(x,
           
           if(math.row.names) {
             paste('$', dn, '$', sep='')
-          } else {
-            cleanLatex(dn)
-          }
+          } else if(already.math.row.names) dn else cleanLatex(dn)
         } else ''
       
       namk <- paste(nams[j],
@@ -344,8 +347,11 @@ latex.default <-
            center=c('center','centering','centerline','none'),
            landscape=FALSE,
            multicol=TRUE, ## to remove multicolumn if no need
-           math.row.names=FALSE, math.col.names=FALSE,
-           hyperref=NULL,
+           math.row.names=FALSE,
+           already.math.row.names=FALSE,
+           math.col.names=FALSE,
+           already.math.col.names=FALSE,
+           hyperref=NULL, continued='continued',
            ...)
 {
   if(length(hyperref)) hyperref <- sprintf('\\hyperref[%s]{', hyperref)
@@ -353,7 +359,10 @@ latex.default <-
   caption.loc <- match.arg(caption.loc)
   cx <- format.df(object, dcolumn=dcolumn, na.blank=na.blank,
                   numeric.dollar=numeric.dollar, cdot=cdot,
-                  math.row.names=math.row.names, math.col.names=math.col.names,
+                  math.row.names=math.row.names,
+                  already.math.row.names=already.math.row.names,
+                  math.col.names=math.col.names,
+                  already.math.col.names=already.math.col.names,
                   double.slash=double.slash, ...)
 
   if(missing(rowname)) rowname <- dimnames(cx)[[1]]
@@ -443,19 +452,6 @@ latex.default <-
     stop(msg)
   }
   
-  ## If there are column groups, add a blank column
-  ## of formats between the groups.
-  if (length(cgroup) & length(cellTexCmds)) {
-    my.index <- split(1 : NCOL(cellTexCmds), rep(cumsum(n.cgroup),
-                                                 times=n.cgroup))
-    new.index <- NULL
-    new.col <- dim(cx)[2] + 1
-    for (i in my.index) new.index <- c(new.index, i, new.col)
-    
-    new.index <- new.index[-length(new.index)]
-    cellTexCmds <- cbind(cellTexCmds, "")[, new.index]
-  }
-
   if (length(cellTexCmds) | length(rownamesTexCmd)) {
     ## LaTeX commands have been specified for either the rownames or
     ## the cells.
@@ -650,9 +646,9 @@ latex.default <-
         paste(sl, "begin{tabular}{", tabular.cols, "}\n", toprule, sep=""),
          'tabular',
         insert=list(if(! table.env && length(insert.bottom))
-                      list('tabular', 'after', insert.bottom),
+                      list('tabular', 'after', paste('\\par', insert.bottom)),
                     if(table.env)
-                      list('table',   'before', insert.bottom),
+                      list('table',   'before', paste(insert.bottom, collapse = ' ')),
                     if(caption.loc == 'bottom' && length(caption))
                       list('tabular', 'after', caption)
                    ) )
@@ -768,7 +764,7 @@ latex.default <-
           file=file,append=file != '')
     else {
       cat(sl,"endfirsthead", sep="",file=file, append=file != '')
-      cat(sl,"caption[]{\\em (continued)} ", eol,
+      cat(sl,"caption[]{\\em (", continued, ")} ", eol,
           sep="",file=file, append=file != '')
       cat(midrule, sep="",file=file, append=file != '')
       if(length(cgroupheader))
@@ -933,11 +929,12 @@ latexVerbatim <- function(x,
                           length=.Options$length, ...)
 {
   if(! missing(width) || ! missing(length)) {
-    old <- options(width=width, length=length)
+	old <- options('width', 'length')
+    options(width=width, length=length)
     on.exit(options(old))
   }
 
-  sink(file, append=append)
+  if(file != '') sink(file, append=append)
   cat('\\setbox0=\\vbox{\n',
       if(length(size))
         c('\\',size,'\n'),
@@ -948,9 +945,9 @@ latexVerbatim <- function(x,
       if(length(hspace))
         c('\\hspace{',hspace,'}'),
       '{\\makebox[\\textwidth]{\\box0}}\n', sep='')
-  
+
+  if(file == '') return(invisible())
   sink()
- 
   structure(list(file=file, style=NULL), class='latex')
 }
 
@@ -1022,7 +1019,7 @@ latexTranslate <- function(object, inn=NULL, out=NULL, pb=FALSE,
 
   dig <- c('0','1','2','3','4','5','6','7','8','9')
 
-  for(i in 1 : length(text)) {
+  for(i in seq_along(text)) {
     lt <- nchar(text[i])
     x <- substring(text[i], 1 : lt, 1 : lt)
     j <- x == '^'
@@ -1030,7 +1027,6 @@ latexTranslate <- function(object, inn=NULL, out=NULL, pb=FALSE,
       is <- ((1 : lt)[j])[1]  #get first ^
       remain <- x[-(1 : is)]
       k <- remain %in% c(' ',',',')',']','\\','$')
-      ## Following 3 lines 31aug02
       if(remain[1] %in% dig ||
          (length(remain) > 1 && remain[1] == '-' && remain[2] %in% dig))
         k[-1] <- k[-1] | remain[-1] %nin% dig
@@ -1229,5 +1225,17 @@ latexSN <- function(x) {
              c('',
                '\\!\\times\\!10^{-*}','\\!\\times\\!10^{-*}',
                '\\!\\times\\!10^{*}','\\!\\times\\!10^{*}'))
+  x
+}
+
+htmlSN <- function(x) {
+  x <- format(x)
+  x <- sedit(x, c('e+00','e-0*',
+                  'e-*',
+                  'e+0*',
+                  'e+*'),
+             c('',
+               '&times;10<sup>-*</sup>', '&times;10<sup>-*</sup>',
+               '&times;10<sup>*</sup>',  '&times;10<sup>*</sup>'))
   x
 }
